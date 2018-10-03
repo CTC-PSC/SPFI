@@ -1,0 +1,366 @@
+---
+title: "Computing a SPFI"
+author: "Last updated by Randy Peterson"
+date: "Last updated on October 2, 2018"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(knitr)
+```
+
+```{r include=FALSE}
+#note that i load the data first b/c i've made a number of changes to some of hte functions that are loaded upon loading this data
+load("Data/Phase2/2018ERA_HRJforBPC.RData")
+```
+
+# SPFI to FPA Inputs
+## Program flow
+Note the following order of operations:
+1. Read in HRJ data
+2. Create a SPFI Input Object
+  a. Stock and ages to include in the index
+  b. Catch time series by SPFI fishery strata
+  c. ERA fisheries that are to be used to compute the SPFI
+  d. Define the SPFI fishery strata
+
+![](C:/zWork/ctc-psc/SPFI/Report/SPFIDataNeeds.jpg)
+
+# Step-by-step instructions on how to use the code
+## Load functions
+
+The first thing you need to do is load all the functions:
+
+```{r include=TRUE}
+source("Code/GarciaFunLibrary.R")
+source("Code/SPFIFunLibrary.R")
+source("Code/SPFItoFPAfun.R")
+```
+
+## Load HRJ data
+The SPFI is computed using output from the CTC's exploitation rate analysis program CoShak12. The core data needed for SPFI computations are saved in what are called HRJ files. Data from HRJ files can be obtained in one of two ways: from a HRJ database or from the list of HRJ files used to create the HRJ database. For this example I will use the latter, but note that both options are available.
+
+```{r include=TRUE, eval=FALSE}
+#Read in HRJ files in a directory
+ by=readHRJdir("Data/HRJ/2018", nFisheries=79, straysinescap=TRUE, Age6="include")
+#Convert to CY layout
+ cy=convertHRJ_BYtoCY(by)
+#Convert HRJ from R to Access format
+ z.cy=convertHRJ_RtoAccess(cy)
+#add the 'preferred' table to the Access format
+ z.cy = addPTableHRJ(z.cy, hrjclass = "Access")
+```
+
+## Create a SPFI input object
+Lastly, to compute a SPFI we will need a SPFI input object.
+
+```{r include=TRUE, eval=TRUE}
+#SPFI input data is a list object
+ afishery=list()
+#Which fisheries?
+ afishery$erafisheries = 1:3
+#Combine fisheries?
+ afishery$combinefisheries = data.frame(ERAFishery=c(1,2,3), SPFIFishery=c(1,2,1))
+#Stock/age matrix
+ afishery$stockage = data.frame(StockAcronym=factor(c("era stock acronym 1", "era stock acronym 2", "...")), Age2 = c(0,0,0), Age3=c(1,0,0), Age4=c(1,1,0), Age5=c(0,1,0), Age6=c(0,0,0))
+#Catch
+ afishery$catch = data.frame(Year=rep(1979:1982,2), SPFIFishery=c(rep(1,4),rep(2,4)), SPFIFisheryName=factor(c(rep("SPFI Strata 1",4), rep("SPFI Strata 2",4))), Catch=rpois(8,10), Addon=rpois(8,1)) 
+#Set class
+ class(afishery) = "spfi_input"
+```
+
+```{r include=TRUE, eval=TRUE}
+afishery 
+```
+
+## Running the program
+### Computing the SPFI
+All that's left is actually computing the SPFI, which is easily done via the spfi function:
+
+```{r include=TRUE, eval=FALSE}
+spfi(spfidat, hrjdat, hrjtype=c("BY","CY","P"), tolerance=.0000001) 
+```
+
+where spfidat is a spfi_input object, hrjdat is HRJ data, hrjtype specifies which HRJ data type to use, and tolerance is the desired accuracy. The spfi program returns a spfi_output object. By convention, the SPFI program computes the SPFI with the hrjtype="BY"; however, the most correct thing to do would be to use hrjtype="P". 
+
+### Summarizing results
+```{r include=TRUE, eval=FALSE}
+summary(x, unit=c("nom cat", "nom tot", "aeq cat", "aeq tot"), baseperiod=1979:1982)
+```
+
+where x is a spfi_output object, unit specifies the unit the SPFI index should be in, and baseperiod defines what years to define as the base period.
+
+### Missing strata? No problem
+If missing strata are present, then the function gauntlet can be used. 
+
+```{r include=TRUE, eval=FALSE}
+gauntlet(x, method="glm", catchcriteria=4000)
+```
+
+where x is a spfi_output object, method specifies which missing strata correction to use, and catchcriteria is the level of catch that defines the missing strata. The gauntlet 
+
+```{r include=TRUE, eval=FALSE}
+summary(x=gauntlet(x), unit=c("nom cat", "nom tot", "aeq cat", "aeq tot"), baseperiod=1979:1982)
+```
+
+# Example 1: 2018ERA SEAK AABM Troll for CLB9806
+## Create the spfi_input object
+
+```{r include=TRUE}
+#SPFI input data is a list object
+ seak=list()
+#Which fisheries?
+ seak$erafisheries = 1:6
+#Combine fisheries?
+ seak$combinefisheries = data.frame(rbind(c(1,1),c(2,2),c(3,3),c(4,4),c(5,5),c(6,4)))
+ names(seak$combinefisheries) = c("ERAFishery","SPFIFishery")
+#Stock/age matrix
+ seak$stockage = read.delim("Data/9806/seakTroll.STF", header=TRUE)
+#Catch
+ seak$catch = read.csv("Data/2018ERA_CatchDataforSPFI/seakTroll7916.CAT",header=FALSE)
+ names(seak$catch) = c("Year","SPFIFishery","SPFIFisheryName","Catch","Addon")
+#Set the object class
+ class(seak) = "spfi_input"
+```
+
+Examine the spfi_input object to see what stocks and ages are going to be used in the SPFI computations.
+
+```{r include=TRUE}
+ seak$stockage
+```
+
+Examine the spfi_input object to see how the SPFI fisheries are defined.
+
+```{r include=TRUE}
+ seak$combinefisheries
+```
+
+## Compute the SPFI
+Note that I have set the hrjtype="BY" so that this result can be compared with the SEAK AABM Troll SPFI in the 2018 CLB & ERA report.
+
+```{r include=TRUE}
+seak_spfi <- spfi(spfidat=seak, hrjdat=z.cy, hrjtype="BY")
+```
+
+## Summarize the results
+### AEQ landed catch
+
+```{r include=TRUE}
+summary(x=seak_spfi, unit="aeq cat")
+```
+
+### AEQ total mortality
+
+```{r include=TRUE}
+summary(x=seak_spfi, unit="aeq tot")
+```
+
+### Figures
+
+```{r include=TRUE}
+  plot(summary(seak_spfi, unit="aeq cat")$spfi[,1],type="l",xlab="Year",ylab="SPFI",main="SEAK", xaxt="n")
+  lines(summary(seak_spfi, unit="aeq tot")$spfi[,1],col="blue")
+  legend("topright",c("AEQ Cat", "AEQ Tot"), lty=c(1,1), col=c("black","blue"),bty="n")
+  axis(1,at=1:length(1979:2016),labels=1979:2016)
+```
+
+## 
+
+# Example 2: 2018ERA SEAK AABM Troll for Base Period Calibration
+## Create the spfi_input object
+
+```{r include=TRUE}
+#SPFI input data is a list object
+ seak=list()
+#Which fisheries?
+ seak$erafisheries = 1:6
+#Combine fisheries?
+ seak$combinefisheries = data.frame(rbind(c(1,1),c(2,2),c(3,3),c(4,4),c(5,5),c(6,4)))
+ names(seak$combinefisheries) = c("ERAFishery","SPFIFishery")
+#Stock/age matrix
+ seak$stockage = read.delim("Data/Phase2/seakTrollbpP2.STF", header=TRUE)
+#Catch
+ seak$catch = read.csv("Data/2018ERA_CatchDataforSPFI/seakTroll7916.CAT",header=FALSE)
+ names(seak$catch) = c("Year","SPFIFishery","SPFIFisheryName","Catch","Addon")
+#Set the object class
+ class(seak) = "spfi_input"
+```
+
+Examine the spfi_input object to see what stocks and ages are going to be used in the SPFI computations.
+
+```{r include=TRUE}
+ seak$stockage
+```
+
+## Compute the SPFI
+Note that I have set the hrjtype="P".
+
+```{r include=TRUE}
+seak_spfi <- spfi(spfidat=seak, hrjdat=z.cy, hrjtype="P")
+```
+
+## Summarize the results
+### AEQ landed catch
+
+```{r include=TRUE}
+summary(x=seak_spfi, unit="aeq cat")
+```
+
+### AEQ total mortality
+
+```{r include=TRUE}
+summary(x=seak_spfi, unit="aeq tot")
+```
+
+### Figures
+
+```{r include=TRUE}
+  plot(summary(seak_spfi, unit="aeq cat")$spfi[,1],type="l",xlab="Year",ylab="SPFI",main="SEAK", xaxt="n")
+  lines(summary(seak_spfi, unit="aeq tot")$spfi[,1],col="blue")
+  legend("topright",c("AEQ Cat", "AEQ Tot"), lty=c(1,1), col=c("black","blue"),bty="n")
+  axis(1,at=1:length(1979:2016),labels=1979:2016)
+```
+
+# Example 3: 2018ERA NBC AABM Troll for Base Period Calibration
+## Create the spfi_input object
+
+```{r include=TRUE}
+#SPFI input data is a list object
+ nbc=list()
+#Which fisheries?
+ nbc$erafisheries = 8
+#Combine fisheries?
+ nbc$combinefisheries = data.frame(rbind(c(8,1)))
+ names(nbc$combinefisheries) = c("ERAFishery","SPFIFishery")
+#Stock/age matrix
+ nbc$stockage = read.delim("Data/Phase2/nbcTrollbpP2.STF", header=TRUE)
+#Catch
+ nbc$catch = read.csv("Data/2018ERA_CatchDataforSPFI/nbcTroll7916.CAT",header=FALSE)
+ names(nbc$catch) = c("Year","SPFIFishery","SPFIFisheryName","Catch","Addon")
+ nbc$catch$SPFIFisheryName = "AllStrata"
+ nbc$catch$SPFIFisheryName = as.factor(nbc$catch$SPFIFisheryName)
+#Set the object class
+ class(nbc) = "spfi_input"
+```
+
+Examine the spfi_input object:
+
+```{r include=TRUE}
+ nbc$stockage
+```
+
+## Compute the SPFI
+Note that I have set the hrjtype="P".
+
+```{r include=TRUE}
+nbc_spfi <- spfi(spfidat=nbc, hrjdat=z.cy, hrjtype="P")
+```
+
+## Summarize the results
+### AEQ landed catch
+
+```{r include=TRUE}
+summary(x=nbc_spfi, unit="aeq cat")
+```
+
+### AEQ total mortality
+
+```{r include=TRUE}
+summary(x=nbc_spfi, unit="aeq tot")
+```
+
+### Figures
+
+```{r include=TRUE}
+  plot(summary(nbc_spfi, unit="aeq cat")$spfi[,1],type="l",xlab="Year",ylab="SPFI",main="NBC", xaxt="n")
+  lines(summary(nbc_spfi, unit="aeq tot")$spfi[,1],col="blue")
+  legend("topright",c("AEQ Cat", "AEQ Tot"), lty=c(1,1), col=c("black","blue"),bty="n")
+  axis(1,at=1:length(1979:2016),labels=1979:2016)
+```
+
+# Example 4: 2018ERA WCVI AABM Troll for Base Period Calibration
+## Create the spfi_input object
+
+```{r include=TRUE}
+#SPFI input data is a list object
+ wcvi=list()
+#Which fisheries?
+ wcvi$erafisheries = 10:12
+#Combine fisheries?
+ wcvi$combinefisheries = data.frame(rbind(c(10,1),c(11,2),c(12,3)))
+ names(wcvi$combinefisheries) = c("ERAFishery","SPFIFishery")
+#Stock/age matrix
+ wcvi$stockage = read.delim("Data/Phase2/wcviTrollbpP2.STF", header=TRUE)
+#Catch
+ wcvi$catch = read.csv("Data/2018ERA_CatchDataforSPFI/wcviTroll7916.CAT",header=FALSE)
+ names(wcvi$catch) = c("Year","SPFIFishery","SPFIFisheryName","Catch","Addon")
+#Set the object class
+ class(wcvi) = "spfi_input"
+```
+
+Examine the spfi_input object:
+
+```{r include=TRUE}
+ wcvi$stockage
+```
+
+## Compute the SPFI
+Note that I have set the hrjtype="P".
+
+```{r include=TRUE}
+wcvi_spfi <- spfi(spfidat=wcvi, hrjdat=z.cy, hrjtype="P")
+```
+
+## Summarize the results
+### AEQ landed catch
+
+Without the missing strata adjusment:
+
+```{r include=TRUE}
+summary(x=wcvi_spfi, unit="aeq cat")
+```
+
+With the missing strata adjusment:
+
+```{r include=TRUE}
+summary(x=gauntlet(x=wcvi_spfi, method="glm", catchcriteria=4000), unit="aeq cat")
+```
+
+### AEQ total mortality
+
+Without the missing strata adjusment:
+
+```{r include=TRUE}
+summary(x=wcvi_spfi, unit="aeq tot")
+```
+
+With the missing strata adjusment:
+
+```{r include=TRUE}
+summary(x=gauntlet(x=wcvi_spfi, method="glm", catchcriteria=4000), unit="aeq tot")
+```
+
+### Figures
+
+Without the missing strata adjusment:
+
+```{r include=TRUE}
+  plot(summary(wcvi_spfi, unit="aeq cat")$spfi[,1],type="l",xlab="Year",ylab="SPFI",main="WCVI", xaxt="n")
+  lines(summary(wcvi_spfi, unit="aeq tot")$spfi[,1],col="blue")
+  legend("topright",c("AEQ Cat", "AEQ Tot"), lty=c(1,1), col=c("black","blue"),bty="n")
+  axis(1,at=1:length(1979:2016),labels=1979:2016)
+```
+
+With the missing strata adjusment:
+
+```{r include=TRUE}
+  plot(summary(gauntlet(x=wcvi_spfi, method="glm", catchcriteria=4000), unit="aeq cat")$spfi[,1],type="l",xlab="Year",ylab="SPFI",main="WCVI", xaxt="n")
+  lines(summary(gauntlet(x=wcvi_spfi, method="glm", catchcriteria=4000), unit="aeq tot")$spfi[,1],col="blue")
+  legend("topright",c("AEQ Cat", "AEQ Tot"), lty=c(1,1), col=c("black","blue"),bty="n")
+  axis(1,at=1:length(1979:2016),labels=1979:2016)
+```
