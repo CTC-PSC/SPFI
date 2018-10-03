@@ -1,11 +1,10 @@
 ---
 title: "Computing a SPFI"
-author: "Last updated by Randy Peterson"
-date: "Last updated on October 2, 2018"
+date: "Last updated on October 3, 2018"
 output:
-  word_document: default
   html_document:
     df_print: paged
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -15,7 +14,7 @@ library(knitr)
 ```
 
 ```{r include=FALSE}
-#note that i load the data first b/c i've made a number of changes to some of hte functions that are loaded upon loading this data
+#note that i load the data first b/c i've made a number of changes to some of the functions that are loaded upon loading this data
 load("Data/Phase2/2018ERA_HRJforBPC.RData")
 ```
 
