@@ -1,11 +1,11 @@
 ---
 title: Time Varying Distribution Parameter in the Stratified Proportional Fishery
   Indices?
-date: "Last updated on October 3, 2018"
+date: "Last updated on October 8, 2018"
 output:
-  word_document: default
   html_document:
     df_print: paged
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}

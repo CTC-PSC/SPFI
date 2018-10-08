@@ -1,6 +1,6 @@
 ---
 title: "Computing a SPFI and SPFI-derived FPA file"
-date: "Last updated on October 3, 2018"
+date: "Last updated on October 8, 2018"
 output:
   word_document: default
   html_document:
@@ -24,7 +24,7 @@ Note the following order of operations:
 2. Create a SPFI Input Object
   a. Stock and ages to include in the index
   b. Catch time series by SPFI fishery strata
-  c. ERA fisheries that are to be used to compute the SPFI
+  c. ERA fisheries that are to be used to compute SPFI
   d. Define the SPFI fishery strata
 3. Read in model fishery definitions
 4. Read in STK file (depends on 2)
@@ -49,8 +49,6 @@ The SPFI is computed using output from the CTC's exploitation rate analysis prog
 ```{r include=FALSE}
 load("Data/Phase2/2018ERA_HRJforBPC.RData")
 ```
-
-## SPFI
 
 ## SPFI
 SPFI output.

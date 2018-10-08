@@ -1,0 +1,216 @@
+---
+title: A Closer Look at the Inclusion of SSA and NSA in the SEAK SPFI
+date: "Last updated on October 8, 2018"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(knitr)
+library(lattice)
+```
+
+```{r include=FALSE}
+load("Data/2018era spfi distribution parameter analysis.RData")
+```
+
+```{r eval=TRUE, include=FALSE}
+#quick helper function to summarize results
+distrib_param_tables <- function(x) {
+#inits
+ nsim    = dim(x)[1]
+ nstocks = dim(x)[2]
+ nages   = dim(x)[3]
+ stknames = colnames(x)
+ tmp1 = list()
+#loop
+ for (i in 1:nstocks) {
+  tmp2 = x[,i,1:nages]
+  tmp2[,colSums(tmp2)==0] = NA
+  tmp2 = cbind(c(stknames[i],rep("",nsim-1)),round(tmp2,2))
+  colnames(tmp2)[1] = "Stock"
+  tmp1[[i]] = tmp2
+ }
+#return out
+ return(tmp1)
+}
+```
+
+# Introduction: 2018ERA SPFIs
+## HRJ Database
+
+2018ERA HRJ files found on SharePoint. Read into R via the following code:
+
+```{r include=TRUE, eval=FALSE}
+ #Read in HRJ files in a directory
+  by=readHRJdir("<user directory>", nFisheries=79, straysinescap=TRUE, Age6="include")
+ #Convert to CY layout
+  cy=convertHRJ_BYtoCY(by)
+ #Convert HRJ from R to Access format
+  z.cy=convertHRJ_RtoAccess(cy)
+ #add the 'preferred' table to the Access format
+  z.cy = addPTableHRJ(z.cy, hrjclass = "Access")
+```
+
+## SEAK
+### Stock & Ages
+
+```{r eval=TRUE, include=FALSE}
+  seak$stockage <- read.delim("Data/Phase2/seakTrollbpP2.STF", header=TRUE)
+```
+
+```{r eval=TRUE}
+  kable(seak$stockage)
+```
+
+### AEQ Total Mortality
+
+```{r eval=TRUE}
+  kable(round(summary(x=seak_spfi, unit="aeq tot")$spfi,2))
+```
+
+### AEQ Landed Catch
+
+```{r eval=TRUE}
+  kable(round(summary(x=seak_spfi, unit="aeq cat")$spfi,2))
+```
+
+# Methods
+## Analysis 1
+
+```{r eval=TRUE}
+ #compute spfi for different year blocks
+  #seak
+   seak_spfi_a1 = multispfi(spfi_input = seak, yearvec = 1994:2016, hrjdat = z.cy, hrjtype = "P")
+   seak_spfi_a1_results_dist  = multispfidistfun(spfi_output_list=seak_spfi_a1, spfi_input=seak)
+   seak_spfi_a1_results_cwthr = multispficwthrfun(spfi_output_list=seak_spfi_a1, spfi_input=seak)
+```
+
+## Analysis 2
+
+```{r eval=TRUE}
+ #compute spfi for different year blocks
+  #seak
+   seak_spfi_a2 = multispfi(spfi_input = seak, yearvec = list(1979:1998, 1999:2008, 2009:2016), hrjdat = z.cy, hrjtype = "P")
+   seak_spfi_a2_results_dist = multispfidistfun(spfi_output_list=seak_spfi_a2, spfi_input=seak)
+```
+
+# Results
+## Analysis 1
+### SEAK
+#### Winter/Spring
+
+```{r eval=TRUE, fig.height=5, fig.width=6.5}
+   xyplot(distrib~ERAYear|Age,group=~Stock,type="l",data=subset(seak_spfi_a1_results_dist,strata==1),auto.key=list(columns=2,title="Stock",space="right"),main="Winter/Spring")
+```
+
+```{r eval=TRUE}
+x=with(subset(seak_spfi_a1_results_dist,strata==1), tapply(distrib, list(ERAYear,Stock,Age), mean))
+kable(do.call("rbind",distrib_param_tables(x)))
+```
+
+#### June Outside
+
+```{r eval=TRUE, fig.height=5, fig.width=6.5}
+   xyplot(distrib~ERAYear|Age,group=~Stock,type="l",data=subset(seak_spfi_a1_results_dist,strata==2),auto.key=list(columns=2,title="Stock",space="right"),main="June Outside")
+```
+
+```{r eval=TRUE}
+x=with(subset(seak_spfi_a1_results_dist,strata==2), tapply(distrib, list(ERAYear,Stock,Age), mean))
+kable(do.call("rbind",distrib_param_tables(x)))
+```
+
+#### June Inside
+
+```{r eval=TRUE, fig.height=5, fig.width=6.5}
+   xyplot(distrib~ERAYear|Age,group=~Stock,type="l",data=subset(seak_spfi_a1_results_dist,strata==3),auto.key=list(columns=2,title="Stock",space="right"),main="June Inside")
+```
+
+```{r eval=TRUE}
+x=with(subset(seak_spfi_a1_results_dist,strata==3), tapply(distrib, list(ERAYear,Stock,Age), mean))
+kable(do.call("rbind",distrib_param_tables(x)))
+```
+
+#### July Outside/Fall
+
+```{r eval=TRUE, fig.height=5, fig.width=6.5}
+   xyplot(distrib~ERAYear|Age,group=~Stock,type="l",data=subset(seak_spfi_a1_results_dist,strata==4),auto.key=list(columns=2,title="Stock",space="right"),main="July Outside/Fall")
+```
+
+```{r eval=TRUE}
+x=with(subset(seak_spfi_a1_results_dist,strata==4), tapply(distrib, list(ERAYear,Stock,Age), mean))
+kable(do.call("rbind",distrib_param_tables(x)))
+```
+
+#### July Inside
+
+```{r eval=TRUE, fig.height=5, fig.width=6.5}
+   xyplot(distrib~ERAYear|Age,group=~Stock,type="l",data=subset(seak_spfi_a1_results_dist,strata==5),auto.key=list(columns=2,title="Stock",space="right"),main="July Inside")
+```
+
+```{r eval=TRUE}
+x=with(subset(seak_spfi_a1_results_dist,strata==5), tapply(distrib, list(ERAYear,Stock,Age), mean))
+kable(do.call("rbind",distrib_param_tables(x)))
+```
+
+## Analysis 2
+### SEAK
+#### Winter/Spring
+
+```{r eval=TRUE, fig.height=5, fig.width=6.5}
+   xyplot(distrib~factor(Simulation)|Age,group=~Stock,type="l",data=subset(seak_spfi_a2_results_dist,strata==1),auto.key=list(columns=2,title="Stock",space="right"),main="Winter/Spring")
+```
+
+```{r eval=TRUE}
+x=with(subset(seak_spfi_a2_results_dist,strata==1), tapply(distrib, list(Simulation,Stock,Age), mean))
+kable(do.call("rbind",distrib_param_tables(x)))
+```
+
+#### June Outside
+
+```{r eval=TRUE, fig.height=5, fig.width=6.5}
+   xyplot(distrib~factor(Simulation)|Age,group=~Stock,type="l",data=subset(seak_spfi_a2_results_dist,strata==2),auto.key=list(columns=2,title="Stock",space="right"),main="June Outside")
+```
+
+```{r eval=TRUE}
+x=with(subset(seak_spfi_a2_results_dist,strata==2), tapply(distrib, list(Simulation,Stock,Age), mean))
+kable(do.call("rbind",distrib_param_tables(x)))
+```
+
+#### June Inside
+
+```{r eval=TRUE, fig.height=5, fig.width=6.5}
+   xyplot(distrib~factor(Simulation)|Age,group=~Stock,type="l",data=subset(seak_spfi_a2_results_dist,strata==3),auto.key=list(columns=2,title="Stock",space="right"),main="June Inside")
+```
+
+```{r eval=TRUE}
+x=with(subset(seak_spfi_a2_results_dist,strata==3), tapply(distrib, list(Simulation,Stock,Age), mean))
+kable(do.call("rbind",distrib_param_tables(x)))
+```
+
+#### July Outside/Fall
+
+```{r eval=TRUE, fig.height=5, fig.width=6.5}
+   xyplot(distrib~factor(Simulation)|Age,group=~Stock,type="l",data=subset(seak_spfi_a2_results_dist,strata==4),auto.key=list(columns=2,title="Stock",space="right"),main="July Outside/Fall")
+```
+
+```{r eval=TRUE}
+x=with(subset(seak_spfi_a2_results_dist,strata==4), tapply(distrib, list(Simulation,Stock,Age), mean))
+kable(do.call("rbind",distrib_param_tables(x)))
+```
+
+#### July Inside
+
+```{r eval=TRUE, fig.height=5, fig.width=6.5}
+   xyplot(distrib~factor(Simulation)|Age,group=~Stock,type="l",data=subset(seak_spfi_a2_results_dist,strata==5),auto.key=list(columns=2,title="Stock",space="right"),main="July Inside")
+```
+
+```{r eval=TRUE}
+x=with(subset(seak_spfi_a2_results_dist,strata==5), tapply(distrib, list(Simulation,Stock,Age), mean))
+kable(do.call("rbind",distrib_param_tables(x)))
+```
+

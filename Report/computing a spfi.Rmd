@@ -1,21 +1,16 @@
 ---
 title: "Computing a SPFI"
-date: "Last updated on October 3, 2018"
+date: "Last updated on October 8, 2018"
 output:
+  word_document: default
   html_document:
     df_print: paged
-  word_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 library(knitr)
-```
-
-```{r include=FALSE}
-#note that i load the data first b/c i've made a number of changes to some of the functions that are loaded upon loading this data
-load("Data/Phase2/2018ERA_HRJforBPC.RData")
 ```
 
 # SPFI to FPA Inputs
@@ -25,7 +20,7 @@ Note the following order of operations:
 2. Create a SPFI Input Object
   a. Stock and ages to include in the index
   b. Catch time series by SPFI fishery strata
-  c. ERA fisheries that are to be used to compute the SPFI
+  c. ERA fisheries that are to be used to compute SPFI
   d. Define the SPFI fishery strata
 
 ![](C:/zWork/ctc-psc/SPFI/Report/SPFIDataNeeds.jpg)
@@ -78,8 +73,8 @@ afishery
 ```
 
 ## Running the program
-### Computing the SPFI
-All that's left is actually computing the SPFI, which is easily done via the spfi function:
+### Compute SPFI
+All that's left is to compute the SPFI, which is easily done via the spfi function:
 
 ```{r include=TRUE, eval=FALSE}
 spfi(spfidat, hrjdat, hrjtype=c("BY","CY","P"), tolerance=.0000001) 
@@ -108,6 +103,15 @@ summary(x=gauntlet(x), unit=c("nom cat", "nom tot", "aeq cat", "aeq tot"), basep
 ```
 
 # Example 1: 2018ERA SEAK AABM Troll for CLB9806
+
+```{r include=FALSE}
+#note that i load the data and then load the functions again b/c a number of changes were made to the functions, which are loaded upon loading the .RDATA object, and thus have to be overwritten
+load("Data/9806/2018ERA_HRJ.RData")
+source("Code/GarciaFunLibrary.R")
+source("Code/SPFIFunLibrary.R")
+source("Code/SPFItoFPAfun.R")
+```
+
 ## Create the spfi_input object
 
 ```{r include=TRUE}
@@ -139,7 +143,20 @@ Examine the spfi_input object to see how the SPFI fisheries are defined.
  seak$combinefisheries
 ```
 
-## Compute the SPFI
+## Load the 2018ERA HRJ Data
+
+```{r include=TRUE, eval=FALSE}
+#Read in HRJ files in a directory
+ by=readHRJdir("Data/9806/2018ERA_HRJ", nFisheries=79, straysinescap=TRUE, Age6="include")
+#Convert to CY layout
+ cy=convertHRJ_BYtoCY(by)
+#Convert HRJ from R to Access format
+ z.cy=convertHRJ_RtoAccess(cy)
+#add the 'preferred' table to the Access format
+ z.cy = addPTableHRJ(z.cy, hrjclass = "Access")
+```
+
+## Compute SPFI
 Note that I have set the hrjtype="BY" so that this result can be compared with the SEAK AABM Troll SPFI in the 2018 CLB & ERA report.
 
 ```{r include=TRUE}
@@ -168,9 +185,16 @@ summary(x=seak_spfi, unit="aeq tot")
   axis(1,at=1:length(1979:2016),labels=1979:2016)
 ```
 
-## 
-
 # Example 2: 2018ERA SEAK AABM Troll for Base Period Calibration
+
+```{r include=FALSE}
+#note that i load the data and then load the functions again b/c a number of changes were made to the functions, which are loaded upon loading the .RDATA object, and thus have to be overwritten
+load("Data/Phase2/2018ERA_HRJforBPC.RData")
+source("Code/GarciaFunLibrary.R")
+source("Code/SPFIFunLibrary.R")
+source("Code/SPFItoFPAfun.R")
+```
+
 ## Create the spfi_input object
 
 ```{r include=TRUE}
@@ -196,7 +220,21 @@ Examine the spfi_input object to see what stocks and ages are going to be used i
  seak$stockage
 ```
 
-## Compute the SPFI
+## Load the 2018ERA HRJ Data for BPC
+The base period calibration work uses a slightly different
+
+```{r include=TRUE, eval=FALSE}
+#Read in HRJ files in a directory
+ by=readHRJdir("Data/Phase2/2018ERA_HRJ", nFisheries=79, straysinescap=TRUE, Age6="include")
+#Convert to CY layout
+ cy=convertHRJ_BYtoCY(by)
+#Convert HRJ from R to Access format
+ z.cy=convertHRJ_RtoAccess(cy)
+#add the 'preferred' table to the Access format
+ z.cy = addPTableHRJ(z.cy, hrjclass = "Access")
+```
+
+## Compute SPFI
 Note that I have set the hrjtype="P".
 
 ```{r include=TRUE}
@@ -253,7 +291,7 @@ Examine the spfi_input object:
  nbc$stockage
 ```
 
-## Compute the SPFI
+## Compute SPFI
 Note that I have set the hrjtype="P".
 
 ```{r include=TRUE}
@@ -308,7 +346,7 @@ Examine the spfi_input object:
  wcvi$stockage
 ```
 
-## Compute the SPFI
+## Compute SPFI
 Note that I have set the hrjtype="P".
 
 ```{r include=TRUE}

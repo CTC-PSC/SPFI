@@ -1,0 +1,236 @@
+---
+title: "SEAK SPFI and FPA File for BPC"
+date: "Last updated on October 8, 2018"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(knitr)
+```
+
+# SPFI and SPFI to FPA Inputs
+## Program flow
+Note the following order of operations:
+1. Read in HRJ data
+2. Create a SPFI Input Object
+  a. Stock and ages to include in the index
+  b. Catch time series by SPFI fishery strata
+  c. ERA fisheries that are to be used to compute SPFI
+  d. Define the SPFI fishery strata
+3. Read in model fishery definitions
+4. Read in STK file (depends on 2)
+5. Read in MDL files (depends on 3)
+
+![](C:/zWork/ctc-psc/SPFI/Report/SPFIandSPFItoFPDataNeeds.jpg)
+
+## Load functions
+The first thing you need to do is load all the functions:
+
+```{r include=TRUE}
+source("Code/GarciaFunLibrary.R")
+source("Code/SPFIFunLibrary.R")
+source("Code/SPFItoFPAfun.R")
+```
+
+## Load HRJ data
+The SPFI is computed using output from the CTC's exploitation rate analysis program CoShak12. The core data needed for SPFI computations are saved in what are called HRJ files. Data from HRJ files can be obtained in one of two ways: from a HRJ database or from the list of HRJ files used to create the HRJ database. For this example I will use the latter, but note that both options are available.
+
+```{r include=TRUE, eval=FALSE}
+#Read in HRJ files in a directory
+ by=readHRJdir("Data/Phase2/2018ERA_HRJ", nFisheries=79, straysinescap=TRUE, Age6="include")
+#Convert to CY layout
+ cy=convertHRJ_BYtoCY(by)
+#Convert HRJ from R to Access format
+ z.cy=convertHRJ_RtoAccess(cy)
+#add the 'preferred' table to the Access format
+ z.cy = addPTableHRJ(z.cy, hrjclass = "Access")
+```
+
+## Create SPFI input objects
+We will need three SPFI input objects: 1) 9806 stock definitions, 2) phase 2 stock definitions, and 3) christmas stock definitions.
+
+### 9806 stock definitions
+
+```{r include=TRUE}
+#SPFI input data is a list object
+ seak9806=list()
+#Which fisheries?
+ seak9806$erafisheries = 1:6
+#Combine fisheries?
+ seak9806$combinefisheries = data.frame(rbind(c(1,1),c(2,2),c(3,3),c(4,4),c(5,5),c(6,4)))
+ names(seak9806$combinefisheries) = c("ERAFishery","SPFIFishery")
+#Stock/age matrix
+ seak9806$stockage = read.delim("Data/9806/seakTroll.STF", header=TRUE)
+#Catch
+ seak9806$catch = read.csv("Data/2018ERA_CatchDataforSPFI/seakTroll7916.CAT",header=FALSE)
+ names(seak9806$catch) = c("Year","SPFIFishery","SPFIFisheryName","Catch","Addon")
+#Set the object class
+ class(seak9806) = "spfi_input"
+```
+
+```{r include=TRUE}
+ kable(seak9806$stockage)
+```
+
+### 9806 stock definitions modified for phase 2
+
+```{r include=TRUE}
+#SPFI input object modified with phase 2 stock definitions
+ seakphase2 = seak9806
+ seakphase2$stockage = read.delim("Data/Phase2/seakTrollbpP2.STF", header=TRUE)
+```
+
+```{r include=TRUE}
+ kable(seakphase2$stockage)
+```
+
+### Phase 2 Christmas stock definitions
+
+```{r include=TRUE}
+#SPFI input object modified with phase 2 christmas stock definitions
+ seakphase2christmas = seak9806
+ seakphase2christmas$stockage = read.delim("Data/Phase2/seakTrollbpP2christmas.STF", header=TRUE) 
+```
+
+```{r include=TRUE}
+ kable(seakphase2christmas$stockage)
+```
+
+## SPFIs
+
+```{r include=FALSE}
+#note that i load the data and then load the functions again b/c a number of changes were made to the functions, which are loaded upon loading the .RDATA object, and thus have to be overwritten
+load("Data/Phase2/2018ERA_HRJforBPC.RData")
+source("Code/GarciaFunLibrary.R")
+source("Code/SPFIFunLibrary.R")
+source("Code/SPFItoFPAfun.R")
+```
+
+### 9806 stock definitions
+
+```{r include=TRUE}
+seak9806_spfi <- spfi(spfidat=seak9806, hrjdat=z.cy, hrjtype="P")
+```
+
+```{r include=TRUE}
+summary(x=seak9806_spfi, unit="aeq cat")
+```
+
+### 9806 modified for Phase 2 stock definitions
+
+```{r include=TRUE}
+seakphase2_spfi <- spfi(spfidat=seakphase2, hrjdat=z.cy, hrjtype="P")
+```
+
+```{r include=TRUE}
+summary(x=seakphase2_spfi, unit="aeq cat")
+```
+
+### Phase 2 Christmas stock definitions
+
+```{r include=TRUE}
+seakphase2christmas_spfi <- spfi(spfidat=seakphase2christmas, hrjdat=z.cy, hrjtype="P")
+```
+
+```{r include=TRUE}
+summary(x=seakphase2christmas_spfi, unit="aeq cat")
+```
+
+## Comparison of results
+### AEQ landed catch
+
+```{r include=TRUE}
+plot(summary(seak9806_spfi, unit="aeq cat")$spfi[,1],type="l",bty="l",xlab="Year",ylab="SPFI",main="SEAK SPFI Comparison", xaxt="n")
+lines(summary(seakphase2_spfi, unit="aeq cat")$spfi[,1],col="blue")
+lines(summary(seakphase2christmas_spfi, unit="aeq cat")$spfi[,1],col="red")
+legend("topright",c("9806", "Phase 2", "Christmas"), lty=c(1,1,1), col=c("black","blue","red"),bty="n")
+axis(1,at=1:length(1979:2016),labels=1979:2016)
+```
+
+### AEQ total mortality
+
+```{r include=TRUE}
+plot(summary(seak9806_spfi, unit="aeq tot")$spfi[,1],type="l",bty="l",xlab="Year",ylab="SPFI",main="SEAK SPFI Comparison", xaxt="n")
+lines(summary(seakphase2_spfi, unit="aeq tot")$spfi[,1],col="blue")
+lines(summary(seakphase2christmas_spfi, unit="aeq tot")$spfi[,1],col="red")
+legend("topright",c("9806", "Phase 2", "Christmas"), lty=c(1,1,1), col=c("black","blue","red"),bty="n")
+axis(1,at=1:length(1979:2016),labels=1979:2016)
+```
+
+## FPAs
+### Model fishery definitions
+
+```{r eval=TRUE}
+ fishery48 <- readLines("Data/Phase2/48FisheryName.txt")
+```
+
+### STK
+
+```{r eval=TRUE}
+ stkDAT <- readSTK(filename = "Data/Phase2/2017BPC_PII_V1.22.STK", stkCharLength=3, fisheryNames = fishery48, outname =  "Data/Phase2/Phase2STK_ReFormatted.txt")
+```
+
+### MDL
+
+```{r eval=TRUE}
+ myList <- list.files("Data/Phase2/56F-adj/", pattern=".MDL", full.names=TRUE)
+ myListNoDir <- list.files("Data/Phase2/56F-adj/", pattern=".MDL")
+ mdlList <- list()
+ for(i in 1:length(unique(stkDAT$Stock))) {
+   dirLoc <- grep(paste(unique(stkDAT$Stock)[i],sep=""), toupper(myListNoDir))
+   mdlList[[i]] <- readMDL(filename = myList[dirLoc], numChar = 5, escapement = TRUE)
+ }
+```
+
+### FPA with 9806 stock definitions
+
+```{r eval=TRUE}
+seak9806_spfifallmod = data.frame(YEAR=seak9806_spfi$years, summary(seak9806_spfi, unit="aeq cat")$spfi)
+seak9806_spfifallmod$X6 = seak9806_spfifallmod$X4
+names(seak9806_spfifallmod)[2]="SPFI"
+```
+
+```{r eval=TRUE}
+seak9806_spfitofp = SPFItoFP(modfishery="ALASKA_T", spfistratvec=1:6, spfidat=seak9806_spfifallmod, baseperiod=1979:1982, mdldat=mdlList, stkdat=stkDAT, npredfuture=3)
+```
+
+```{r eval=TRUE}
+writeFP(seak9806_spfitofp, "Results/Phase2/1AKTR18, 79-82 BP 9806 stock list.fpa", modfisherynumber=1)
+```
+
+### FPA with 9806 modified for Phase 2 stock definitions
+
+```{r eval=TRUE}
+seakphase2_spfifallmod = data.frame(YEAR=seakphase2_spfi$years, summary(seakphase2_spfi, unit="aeq cat")$spfi)
+seakphase2_spfifallmod$X6 = seakphase2_spfifallmod$X4
+names(seakphase2_spfifallmod)[2]="SPFI"
+```
+
+```{r eval=TRUE}
+seakphase2_spfitofp = SPFItoFP(modfishery="ALASKA_T", spfistratvec=1:6, spfidat=seakphase2_spfifallmod, baseperiod=1979:1982, mdldat=mdlList, stkdat=stkDAT, npredfuture=3)
+```
+
+```{r eval=TRUE}
+writeFP(seakphase2_spfitofp, "Results/Phase2/1AKTR18, 79-82 BP 9806 stock list modified for phase 2.fpa", modfisherynumber=1)
+```
+
+### FPA with Phase 2 Christmas stock definitions
+
+```{r eval=TRUE}
+seakphase2christmas_spfifallmod = data.frame(YEAR=seakphase2christmas_spfi$years, summary(seakphase2christmas_spfi, unit="aeq cat")$spfi)
+seakphase2christmas_spfifallmod$X6 = seakphase2christmas_spfifallmod$X4
+names(seakphase2christmas_spfifallmod)[2]="SPFI"
+```
+
+```{r eval=TRUE}
+seakphase2christmas_spfitofp = SPFItoFP(modfishery="ALASKA_T", spfistratvec=1:6, spfidat=seakphase2christmas_spfifallmod, baseperiod=1979:1982, mdldat=mdlList, stkdat=stkDAT, npredfuture=3)
+```
+
+```{r eval=TRUE}
+writeFP(seakphase2_spfitofp, "Results/Phase2/1AKTR18, 79-82 BP christmas stock list.fpa", modfisherynumber=1)
+```
